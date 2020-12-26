@@ -44,6 +44,7 @@ void filling_last(int p_id)
 	count++;
 }
 
+//wait
 int wait(int p_id)
 {
 	for (int i = 0; i < count; i++)
