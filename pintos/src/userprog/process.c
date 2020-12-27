@@ -26,14 +26,10 @@
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
-struct waiting waiting_array;
-struct waiting1 waiting_array1[10];
-int semaphore_count = 0;
+struct waiting1 waiting_array1[CNT];
 
 bool exec_proc_first = true; //for choosing ptr_thread_main
 struct thread *last_executed_thread = NULL;
-
-struct list waiting_list;
 
 void is_first_look(struct thread *th)
 {
@@ -46,40 +42,27 @@ void is_first_look(struct thread *th)
 	last_executed_thread = th;
 }
 
-void initialization_and_waiting(void)
+int search_for_free_place(void)
 {
-	waiting_array.parent[semaphore_count] = thread_current();
-	sema_init(&waiting_array.wait[semaphore_count], 0);
-	semaphore_count++;
-	sema_down(&waiting_array.wait[semaphore_count - 1]);
-	waiting_array.parent[semaphore_count - 1] = NULL;
-}
-void initialization_and_waiting1(void)
-{
-	waiting_array1[semaphore_count].parent=thread_current();
-	sema_init(&waiting_array1[semaphore_count].wait, 0);
-	semaphore_count++;
-	sema_down(&waiting_array1[semaphore_count - 1].wait);
-	waiting_array1[semaphore_count - 1].parent = NULL;
-}
-
-void sema_index_search(struct thread *parent)
-{
-	if (compare(parent, 0))
+	for (int i = 0; i < CNT; i++)
 	{
-		return ERROR_1;
+		if (waiting_array1[i].is_used != true)
+		{
+			waiting_array1[i].is_used = true;
+			return i;
+		}
 	}
-
-	int i = 0;
-	while (waiting_array.parent[i] != parent)
-	{
-		i++;
-	}
-
-	sema_up(&waiting_array.wait[i]);
-	return;
 }
-void sema_index_search1(struct thread *parent)
+
+void filling_array(int id)
+{
+	waiting_array1[id].parent = thread_current();
+	sema_init(&waiting_array1[id].wait, 0);
+	sema_down(&waiting_array1[id].wait);
+	waiting_array1[id].parent = NULL;
+}
+
+void upping_s(struct thread *parent)
 {
 	if (compare(parent, 0))
 	{
@@ -178,13 +161,10 @@ start_process(void *file_name_)
    does nothing. */
 int process_wait(tid_t child_tid)
 {
-	int index = semaphore_count;
 	if (!compare(thread_current()->TID_of_child, child_tid))
 		return ERROR_1;
 
-	initialization_and_waiting1();
-	//initialization_and_waiting();
-
+	filling_array(search_for_free_place());
 	return attr;
 }
 
@@ -202,11 +182,9 @@ void process_exit(void)
 		{
 			printf("%s: exit(%d)\n", strtok_r(thread_current()->name, " ", &save_ptr), attr);
 		}
-		//sema_index_search(thread_current()->parent);
-		sema_index_search1(thread_current()->parent);
+		upping_s(thread_current()->parent);
 	}
 	//end
-	
 
 	/* Destroy the current process's page directory and switch back
 	  to the kernel-only page directory. */

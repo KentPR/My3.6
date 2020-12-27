@@ -11,11 +11,6 @@ void process_exit(void);
 void process_activate(void);
 bool compare(void *a, void *b);
 
-struct waiting
-{
-	struct semaphore wait[5];
-	struct thread *parent[5];
-};
 struct waiting1
 {
 	struct semaphore wait;
