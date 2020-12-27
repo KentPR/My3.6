@@ -27,20 +27,11 @@ static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
 struct waiting waiting_array;
+struct waiting1 waiting_array1[10];
 int semaphore_count = 0;
 
 bool exec_proc_first = true; //for choosing ptr_thread_main
 struct thread *last_executed_thread = NULL;
-
-struct list_w
-{
-	int id;					//number of node
-	struct thread *parent;	//save parent
-	struct semaphore swait; //semaphore
-	struct list_w *next;	//just next
-};
-struct list_w *root = NULL; //pointer on 1st node of list
-struct list_w *curr = NULL; //pointer on last node in insertion
 
 struct list waiting_list;
 
@@ -63,69 +54,15 @@ void initialization_and_waiting(void)
 	sema_down(&waiting_array.wait[semaphore_count - 1]);
 	waiting_array.parent[semaphore_count - 1] = NULL;
 }
-void initialization_and_waiting2(void)
+void initialization_and_waiting1(void)
 {
-	struct list_w *new = (struct list_w *)malloc(sizeof(struct list_w));
-	new->parent = thread_current();
-	sema_init(&new->swait, 0);
+	waiting_array1[semaphore_count].parent=thread_current();
+	sema_init(&waiting_array1[semaphore_count].wait, 0);
 	semaphore_count++;
-	sema_down(&new->swait);
-	new->parent = NULL;
-
-	if (root == NULL)
-	{
-		root = new; //rooting
-		curr = new;
-	}
-	else
-	{
-		curr->next = new; // insertion
-	}
-
-	curr = new;
-
-	new->next = NULL;
-
-	return;
+	sema_down(&waiting_array1[semaphore_count - 1].wait);
+	waiting_array1[semaphore_count - 1].parent = NULL;
 }
 
-// void proc_list_init()
-// {
-// 	list_init(&waiting_list);
-// }
-
-// void initialization_and_waiting1(int index)
-// {
-// 	struct w_node *tmp;
-
-// 	tmp->parent = thread_current();
-// 	sema_init(&tmp->swait, 0);
-// 	semaphore_count++;
-// 	tmp->id = index;
-// 	sema_down(&tmp->swait);
-// 	tmp->parent = NULL;
-
-// 	list_push_back(&waiting_list, &tmp->elem);
-// }
-
-// int sema_index_search(struct thread *parent)
-// {
-// 	if (compare(parent, 0))
-// 	{
-// 		return ERROR_1;
-// 	}
-
-// 	for (int i = semaphore_count; i >= 0; i--)
-// 	{
-// 		if (compare(waiting_array.parent[i], parent))
-// 		{
-// 			if (compare(semaphore_count, i))
-// 				return ERROR_1;
-// 			else
-// 				return i;
-// 		}
-// 	}
-// }
 void sema_index_search(struct thread *parent)
 {
 	if (compare(parent, 0))
@@ -142,45 +79,22 @@ void sema_index_search(struct thread *parent)
 	sema_up(&waiting_array.wait[i]);
 	return;
 }
-void sema_index_search2(struct thread *parent)
+void sema_index_search1(struct thread *parent)
 {
 	if (compare(parent, 0))
 	{
-		return;
+		return ERROR_1;
 	}
 
-	struct list_w *node = root;
-	while (node->parent != parent)
+	int i = 0;
+	while (waiting_array1[i].parent != parent)
 	{
-		node = node->next;
+		i++;
 	}
 
-	sema_up(&node->swait);
+	sema_up(&waiting_array1[i].wait);
 	return;
 }
-
-// struct w_node *sema_search(struct thread *parent)
-// {
-// 	if (compare(parent, 0))
-// 	{
-// 		return ERROR_1;
-// 	}
-
-// 	struct w_node *w;
-// 	for (struct list_elem *e = list_end(&waiting_list); w = list_entry(e, struct w_node, elem)->id >= 0; e = list_back(e))
-// 	{
-// 		if (compare(w->parent, parent))
-// 		{
-// 			if (compare(semaphore_count, w->id))
-// 				return NULL;
-// 			else
-// 			{
-// 				list_remove(e);
-// 				return w;
-// 			}
-// 		}
-// 	}
-// }
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -268,8 +182,8 @@ int process_wait(tid_t child_tid)
 	if (!compare(thread_current()->TID_of_child, child_tid))
 		return ERROR_1;
 
-	//initialization_and_waiting2();
-	initialization_and_waiting();
+	initialization_and_waiting1();
+	//initialization_and_waiting();
 
 	return attr;
 }
@@ -288,26 +202,11 @@ void process_exit(void)
 		{
 			printf("%s: exit(%d)\n", strtok_r(thread_current()->name, " ", &save_ptr), attr);
 		}
-		sema_index_search(thread_current()->parent);
-		//sema_index_search2(thread_current()->parent);
+		//sema_index_search(thread_current()->parent);
+		sema_index_search1(thread_current()->parent);
 	}
 	//end
-	//1
-	// char *save_ptr;
-	// if (!thread_current()->main_thr)
-	// {
-	// 	if (compare(thread_current()->exhisting, 0))
-	// 	{
-	// 		printf("%s: exit(%d)\n", strtok_r(thread_current()->name, " ", &save_ptr), attr);
-	// 	}
-
-	// 	struct w_node *tmp = sema_search(thread_current()->parent);
-	// 	if (tmp != NULL)
-	// 	{
-	// 		sema_up(&tmp->swait);
-	// 	}
-	// }
-	//1
+	
 
 	/* Destroy the current process's page directory and switch back
 	  to the kernel-only page directory. */

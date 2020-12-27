@@ -13,15 +13,14 @@ bool compare(void *a, void *b);
 
 struct waiting
 {
-	struct semaphore wait[10];
-	struct thread *parent[10];
+	struct semaphore wait[5];
+	struct thread *parent[5];
 };
-struct w_node
+struct waiting1
 {
-	struct semaphore swait;
+	struct semaphore wait;
 	struct thread *parent;
-	struct list_elem elem;
-	int id;
+	bool is_used;
 };
 
 struct storage
