@@ -16,7 +16,6 @@ static void syscall_handler(struct intr_frame *);
 
 struct storage store[20];
 
-int count_files = 0;
 int count = 0;
 
 void filling_eax(struct intr_frame *f, int value)

@@ -18,16 +18,10 @@ struct waiting
 };
 struct w_node
 {
-	struct semaphore wait;
+	struct semaphore swait;
 	struct thread *parent;
 	struct list_elem elem;
 	int id;
-};
-
-struct storage_contents
-{
-	struct file *file_ptr;
-	bool opened;
 };
 
 struct storage

@@ -8,7 +8,8 @@
 #include "userprog/gdt.h"
 
 #include "userprog/syscall.h"
-//#include "kernel/list.h"
+#include "threads/malloc.h"
+#include "lib/debug.h"
 
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -25,34 +26,25 @@
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
-struct waiting waiter;
+struct waiting waiting_array;
 int semaphore_count = 0;
 
 bool exec_proc_first = true; //for choosing ptr_thread_main
 struct thread *last_executed_thread = NULL;
 
+struct list_w
+{
+	int id;					//number of node
+	struct thread *parent;	//save parent
+	struct semaphore swait; //semaphore
+	struct list_w *next;	//just next
+};
+struct list_w *root = NULL; //pointer on 1st node of list
+struct list_w *curr = NULL; //pointer on last node in insertion
+
 struct list waiting_list;
 
-void initialization(int index)
-{
-	struct w_node tmp;
-	list_init(&waiting_list);
-	sema_init(&tmp.wait, 0);
-	tmp.parent = thread_current();
-	tmp.id = index;
-	sema_down(&tmp.wait);
-	list_push_back(&waiting_list, &tmp.elem);
-}
-
-bool compare(void *a, void *b)
-{
-	if (a == b)
-		return true;
-	else
-		return false;
-}
-
-void first_look(struct thread *th)
+void is_first_look(struct thread *th)
 {
 	if (exec_proc_first == true)
 	{
@@ -63,30 +55,132 @@ void first_look(struct thread *th)
 	last_executed_thread = th;
 }
 
-void initialization_and_waiting(int index)
+void initialization_and_waiting(void)
 {
-	waiter.parent[index] = thread_current();
-	sema_init(&waiter.wait[index], 0);
+	waiting_array.parent[semaphore_count] = thread_current();
+	sema_init(&waiting_array.wait[semaphore_count], 0);
 	semaphore_count++;
-	sema_down(&waiter.wait[index]); //waiting for child proc exit
-	waiter.parent[index] = 0;
+	sema_down(&waiting_array.wait[semaphore_count - 1]);
+	waiting_array.parent[semaphore_count - 1] = NULL;
 }
-
-int sema_index_search(struct thread *parent)
+void initialization_and_waiting2(void)
 {
+	struct list_w *new = (struct list_w *)malloc(sizeof(struct list_w));
+	new->parent = thread_current();
+	sema_init(&new->swait, 0);
+	semaphore_count++;
+	sema_down(&new->swait);
+	new->parent = NULL;
 
-	if (0 == parent)
-		return ERROR_1;
-	int index = 0;
-
-	while (index < semaphore_count && waiter.parent[index] != parent)
-		index++;
-
-	if (compare(semaphore_count, index))
-		return ERROR_1;
+	if (root == NULL)
+	{
+		root = new; //rooting
+		curr = new;
+	}
 	else
-		return index;
+	{
+		curr->next = new; // insertion
+	}
+
+	curr = new;
+
+	new->next = NULL;
+
+	return;
 }
+
+// void proc_list_init()
+// {
+// 	list_init(&waiting_list);
+// }
+
+// void initialization_and_waiting1(int index)
+// {
+// 	struct w_node *tmp;
+
+// 	tmp->parent = thread_current();
+// 	sema_init(&tmp->swait, 0);
+// 	semaphore_count++;
+// 	tmp->id = index;
+// 	sema_down(&tmp->swait);
+// 	tmp->parent = NULL;
+
+// 	list_push_back(&waiting_list, &tmp->elem);
+// }
+
+// int sema_index_search(struct thread *parent)
+// {
+// 	if (compare(parent, 0))
+// 	{
+// 		return ERROR_1;
+// 	}
+
+// 	for (int i = semaphore_count; i >= 0; i--)
+// 	{
+// 		if (compare(waiting_array.parent[i], parent))
+// 		{
+// 			if (compare(semaphore_count, i))
+// 				return ERROR_1;
+// 			else
+// 				return i;
+// 		}
+// 	}
+// }
+void sema_index_search(struct thread *parent)
+{
+	if (compare(parent, 0))
+	{
+		return ERROR_1;
+	}
+
+	int i = 0;
+	while (waiting_array.parent[i] != parent)
+	{
+		i++;
+	}
+
+	sema_up(&waiting_array.wait[i]);
+	return;
+}
+void sema_index_search2(struct thread *parent)
+{
+	if (compare(parent, 0))
+	{
+		return;
+	}
+
+	struct list_w *node = root;
+	while (node->parent != parent)
+	{
+		node = node->next;
+	}
+
+	sema_up(&node->swait);
+	return;
+}
+
+// struct w_node *sema_search(struct thread *parent)
+// {
+// 	if (compare(parent, 0))
+// 	{
+// 		return ERROR_1;
+// 	}
+
+// 	struct w_node *w;
+// 	for (struct list_elem *e = list_end(&waiting_list); w = list_entry(e, struct w_node, elem)->id >= 0; e = list_back(e))
+// 	{
+// 		if (compare(w->parent, parent))
+// 		{
+// 			if (compare(semaphore_count, w->id))
+// 				return NULL;
+// 			else
+// 			{
+// 				list_remove(e);
+// 				return w;
+// 			}
+// 		}
+// 	}
+// }
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -98,7 +192,7 @@ tid_t process_execute(const char *file_name)
 	tid_t tid;
 
 	//begin_execute
-	first_look(thread_current());
+	is_first_look(thread_current());
 	//end
 
 	/* Make a copy of FILE_NAME.
@@ -174,7 +268,8 @@ int process_wait(tid_t child_tid)
 	if (!compare(thread_current()->TID_of_child, child_tid))
 		return ERROR_1;
 
-	initialization_and_waiting(semaphore_count);
+	//initialization_and_waiting2();
+	initialization_and_waiting();
 
 	return attr;
 }
@@ -186,21 +281,33 @@ void process_exit(void)
 	uint32_t *pd;
 
 	//begin_exit
-	char *thread_name;
 	char *save_ptr;
-	if (thread_current()->main_thr == false)
+	if (!thread_current()->main_thr)
 	{
-		if (thread_current()->exhisting == 0)
+		if (compare(thread_current()->exhisting, 0))
 		{
-			thread_name = strtok_r(thread_current()->name, " ", &save_ptr);
-			printf("%s: exit(%d)\n", thread_name, attr);
+			printf("%s: exit(%d)\n", strtok_r(thread_current()->name, " ", &save_ptr), attr);
 		}
-
-		int index = sema_index_search(thread_current()->parent);
-		if (index != ERROR_1)
-			sema_up(&waiter.wait[index]);
+		sema_index_search(thread_current()->parent);
+		//sema_index_search2(thread_current()->parent);
 	}
 	//end
+	//1
+	// char *save_ptr;
+	// if (!thread_current()->main_thr)
+	// {
+	// 	if (compare(thread_current()->exhisting, 0))
+	// 	{
+	// 		printf("%s: exit(%d)\n", strtok_r(thread_current()->name, " ", &save_ptr), attr);
+	// 	}
+
+	// 	struct w_node *tmp = sema_search(thread_current()->parent);
+	// 	if (tmp != NULL)
+	// 	{
+	// 		sema_up(&tmp->swait);
+	// 	}
+	// }
+	//1
 
 	/* Destroy the current process's page directory and switch back
 	  to the kernel-only page directory. */
