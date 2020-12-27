@@ -15,9 +15,7 @@
 static void syscall_handler(struct intr_frame *);
 
 struct storage store[20];
-//struct storage_contents store_contents[CNT];
 
-// int new_fd = 2;
 int count_files = 0;
 int count = 0;
 
@@ -54,22 +52,6 @@ int wait(int p_id)
 	filling_last(p_id);
 	return process_wait(p_id);
 }
-// int wait1(int p_id, int thid, struct intr_frame *f)
-// {
-// 	for (int i = 0; i < count; i++)
-// 	{
-// 		if (compare(store[i].proc, thread_current()) && compare(store[i].pid, p_id))
-// 		{
-// 			thid = ERROR_1;
-// 			filling_eax(f, thid);
-// 			return;
-// 		}
-// 	}
-// 	filling_last(p_id);
-// 	thid = p_id;
-// 	filling_eax(f, thid);
-// 	return;
-// }
 
 struct file *open_f(const char *file)
 {
@@ -80,23 +62,6 @@ struct file *open_f(const char *file)
 		return file_buf;
 }
 
-// void open(const char *file, int thid, struct intr_frame *f)
-// {
-// 	int mas_index = count_files;
-
-// 	if (open_f(file) == -1)
-// 	{
-// 		f->eax = ERROR_1;
-// 		thid = ERROR_1;
-// 		return;
-// 	}
-
-// 	store_contents[count_files].file_ptr = open_f(file);
-// 	thid = count_files + CNT;
-// 	f->eax = thid;
-// 	store_contents[count_files].opened = true;
-// 	count_files++;
-// }
 void open1(const char *file, int thid, struct intr_frame *f)
 {
 
@@ -137,23 +102,6 @@ void close(int *ptr)
 		}
 	}
 }
-
-// struct file *find_file(int fd, bool attribute)
-// {
-// 	struct file *found_file;
-// 	for (int c = 0; c < count_files; c++)
-// 	{
-// 		if (store_contents[c].opened == true)
-// 		{
-// 			found_file = store_contents[c].file_ptr;
-// 			if (attribute == false)
-// 				store_contents[c].opened = false;
-
-// 			return found_file;
-// 		}
-// 	}
-// 	return NULL;
-// }
 
 struct file *find_file1(int fd, bool attribute)
 {
@@ -197,35 +145,6 @@ int read(int fd, void *buffer, unsigned int size, int thid, struct intr_frame *f
 	thid = file_read(find_file1(fd, true), buffer, size);
 	f->eax = thid;
 }
-// int read1(int fd, int buffer, int scale)
-// {
-// 	struct file *file_buf;
-// 	int cntr;
-// 	char *buff;
-// 	unsigned int for_return;
-
-// 	cntr = 0;
-// 	buff = (char *)buffer;
-
-// 	if (fd != 0)
-// 	{
-// 		file_buf = find_file(fd, true);
-// 		if (file_buf == NULL)
-// 			return -1;
-// 	}
-// 	else
-// 	{
-// 		while (cntr < scale)
-// 		{
-// 			buff[cntr] = input_getc();
-// 			if ('\n' == buff[cntr])
-// 				break;
-// 			cntr++;
-// 		}
-// 	}
-// 	for_return = file_read(file_buf, buffer, scale);
-// 	return for_return;
-// }
 
 int write(int fd, const void *buffer, unsigned int size, int thid, struct intr_frame *f)
 {
