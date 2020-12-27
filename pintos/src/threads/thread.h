@@ -1,6 +1,6 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
-#define CNT 2
+#define CNT 10
 
 #include <debug.h>
 #include <list.h>
@@ -103,6 +103,7 @@ struct thread
    tid_t TID_of_child;
    bool main_thr;
    struct file* Fbox[CNT];
+   int opened[CNT];
    int file_cnt;
 //#endif
 

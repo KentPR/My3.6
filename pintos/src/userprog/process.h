@@ -26,7 +26,6 @@ struct w_node
 
 struct storage_contents
 {
-	int fd;
 	struct file *file_ptr;
 	bool opened;
 };
