@@ -22,11 +22,4 @@ struct w_arr
 	bool is_used;
 };
 
-struct p_arr
-{
-	struct thread *thr;
-	int tid;
-	bool is_used;
-};
-
 #endif /* userprog/process.h */

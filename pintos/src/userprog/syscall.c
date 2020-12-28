@@ -13,13 +13,7 @@
 #include "lib/kernel/stdio.h"
 
 static void syscall_handler(struct intr_frame *);
-
-struct p_arr store[CNT];
-
-void filling_eax(struct intr_frame *f, int value)
-{
-	f->eax = value;
-}
+struct p_arr process_array[CNT];
 
 static void halt(void)
 {
@@ -36,31 +30,31 @@ int search_for_free_place(void)
 {
 	for (int i = 0; i < CNT; i++)
 	{
-		if (store[i].is_used != true)
+		if (process_array[i].is_used != true)
 		{
-			store[i].is_used = true;
+			process_array[i].is_used = true;
 			return i;
 		}
 	}
 }
 
-void filling_array_t(int p_id, int index)
+void filling_array_t(int t_id, int index)
 {
-	store[index].thr = thread_current();
-	store[index].tid = p_id;
+	process_array[index].thr = thread_current();
+	process_array[index].tid = t_id;
 }
 
-int wait(int p_id)
+int wait(int t_id)
 {
 	int i = 0;
-	while (store[i].is_used == true)
+	while (process_array[i].is_used == true)
 	{
-		if (compare(store[i].thr, thread_current()) && compare(store[i].tid, p_id))
+		if (compare(process_array[i].thr, thread_current()) && compare(process_array[i].tid, t_id))
 			return ERROR_1;
 		i++;
 	}
-	filling_array_t(p_id, search_for_free_place());
-	return process_wait(p_id);
+	filling_array_t(t_id, search_for_free_place());
+	return process_wait(t_id);
 }
 
 struct file *open_f(const char *file)
@@ -72,7 +66,7 @@ struct file *open_f(const char *file)
 		return file_buf;
 }
 
-void open1(const char *file, int thid, struct intr_frame *f)
+void open(const char *file, int thid, struct intr_frame *f)
 {
 
 	if (open_f(file) == ERROR_1)
@@ -102,8 +96,7 @@ void file_size(int *ptr, int thid, struct intr_frame *f)
 
 void close(int *ptr)
 {
-	int fd = *ptr;
-	struct file *fdd = thread_current()->Fbox[fd];
+	struct file *fdd = thread_current()->Fbox[*ptr];
 	for (int i = 0; i < thread_current()->file_cnt; i++)
 	{
 		if (compare(fdd, 0))
@@ -114,30 +107,26 @@ void close(int *ptr)
 	}
 }
 
-struct file *find_file1(int fd, bool attribute)
+struct file *search_f(bool system_call)
 {
-	struct file *found_file;
 	for (int i = 0; i < thread_current()->file_cnt; i++)
 	{
 		if (thread_current()->opened[i])
 		{
-			found_file = thread_current()->Fbox[i];
-			if (attribute == false)
+			if (system_call == false)
 				thread_current()->opened[i] = false;
 
-			return found_file;
+			return thread_current()->Fbox[i];
 		}
 	}
 	return NULL;
 }
 
-int read(int fd, void *buffer, unsigned int size, int thid, struct intr_frame *f)
+void read(int fd, void *buffer, unsigned int size, int thid, struct intr_frame *f)
 {
-	char *buff = (char *)buffer;
-
 	if (!compare(fd, 0))
 	{
-		if (find_file1(fd, true) == NULL)
+		if (search_f(S_READ) == NULL)
 		{
 			thid = ERROR_1;
 			f->eax = ERROR_1;
@@ -148,34 +137,37 @@ int read(int fd, void *buffer, unsigned int size, int thid, struct intr_frame *f
 	{
 		for (int i = 0; i < size; i++)
 		{
-			buff[i] = input_getc();
-			if (compare('\n', buff[i]))
+			*((char *)buffer + i) = input_getc();
+			if (compare('\n', *((char *)buffer + i)))
 				break;
 		}
 	}
-	thid = file_read(find_file1(fd, true), buffer, size);
+	thid = file_read(search_f(S_READ), buffer, size);
 	f->eax = thid;
+	return;
 }
 
-int write(int fd, const void *buffer, unsigned int size, int thid, struct intr_frame *f)
+write(int fd, const void *buffer, unsigned int size, int thid, struct intr_frame *f)
 {
-	char *buff = (const char *)buffer;
-	if (1 == fd)
+	if (compare(fd, S_WRITE))
 	{
 		putbuf(buffer, size);
-		return size;
+		thid = size;
+		f->eax = thid;
+		return;
 	}
 	else
 	{
-		if (find_file1(fd, true) == NULL)
+		if (search_f(S_WRITE) == NULL)
 		{
 			thid = ERROR_1;
 			f->eax = ERROR_1;
 			return;
 		}
 	}
-	thid = file_read(find_file1(fd, true), buffer, size);
+	thid = file_read(search_f(S_WRITE), buffer, size);
 	f->eax = thid;
+	return;
 }
 
 bool validate_usr_pointer(void *esp)
@@ -187,7 +179,6 @@ bool validate_usr_pointer(void *esp)
 
 bool arg_check(int *ptr, int i)
 {
-	//ptr += i;
 	int *pr = *(ptr + i);
 	switch (i)
 	{
@@ -228,20 +219,23 @@ void exec(int *arar, int thid, struct intr_frame *f)
 	{
 		thid = ERROR_1;
 	}
-	filling_eax(f, thid);
+	f->eax = thid;
+	;
 	return;
 }
 
 void create(int *ptr, int thid, struct intr_frame *f)
 {
 	thid = filesys_create(*(ptr + 1), *(ptr + 2));
-	filling_eax(f, thid);
+	f->eax = thid;
+	;
 }
 
 void remove(int *ptr, int thid, struct intr_frame *f)
 {
 	thid = filesys_remove(*(ptr + 1));
-	filling_eax(f, thid);
+	f->eax = thid;
+	;
 }
 
 void syscall_init(void)
@@ -281,7 +275,8 @@ syscall_handler(struct intr_frame *f)
 		break;
 	case SYS_WAIT:
 		thid = wait(*(arar + 1));
-		filling_eax(f, thid);
+		f->eax = thid;
+		;
 		break;
 	case SYS_CREATE:
 		if (arg_check(arar, 1))
@@ -305,11 +300,11 @@ syscall_handler(struct intr_frame *f)
 			exit(ERROR_1);
 			return;
 		}
-		open1(*(arar + 1), &thid, f);
+		open(*(arar + 1), &thid, f);
 		break;
 	case SYS_CLOSE:
 		//nocheck
-		file_buf = find_file1(*(arar + 1), false);
+		file_buf = search_f(S_CLOSE);
 		if (file_buf == NULL)
 			break;
 
@@ -317,13 +312,14 @@ syscall_handler(struct intr_frame *f)
 		break;
 	case SYS_FILESIZE:
 		//nocheck
-		file_buf = find_file1(*(arar + 1), true);
+		file_buf = search_f(S_FILESIZE);
 		if (file_buf == NULL)
 			thid = -1;
 		else
 			thid = file_length(file_buf);
 
-		filling_eax(f, thid);
+		f->eax = thid;
+		;
 		break;
 	case SYS_READ:
 		if (arg_check(arar, 2))
@@ -331,7 +327,7 @@ syscall_handler(struct intr_frame *f)
 			exit(ERROR_1);
 			return;
 		}
-		thid = read(*(arar + 1), *(arar + 2), *(arar + 3), &thid, f);
+		read(*(arar + 1), *(arar + 2), *(arar + 3), &thid, f);
 		break;
 	case SYS_WRITE:
 		if (arg_check(arar, 2))
@@ -339,7 +335,7 @@ syscall_handler(struct intr_frame *f)
 			exit(ERROR_1);
 			return;
 		}
-		thid = write(*(arar + 1), *(arar + 2), *(arar + 3), &thid, f);
+		write(*(arar + 1), *(arar + 2), *(arar + 3), &thid, f);
 		break;
 	default:
 		printf("system call!\n");

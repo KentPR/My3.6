@@ -26,29 +26,29 @@
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
-struct w_arr waiting_array1[CNT];
+struct w_arr waiting_array[CNT];
 
 bool exec_proc_first = true; //for choosing ptr_thread_main
 struct thread *last_executed_thread = NULL;
 
-void is_first_look(struct thread *th)
+void is_first_look(struct thread *thr)
 {
 	if (exec_proc_first == true)
 	{
 		exec_proc_first = false;
-		th->main_thr = true;
+		thr->main_thr = true;
 	}
-	th->main_thr = false;
-	last_executed_thread = th;
+	thr->main_thr = false;
+	last_executed_thread = thr;
 }
 
 int search_for_free_index(void)
 {
 	for (int i = 0; i < CNT; i++)
 	{
-		if (waiting_array1[i].is_used != true)
+		if (waiting_array[i].is_used != true)
 		{
-			waiting_array1[i].is_used = true;
+			waiting_array[i].is_used = true;
 			return i;
 		}
 	}
@@ -56,10 +56,10 @@ int search_for_free_index(void)
 
 void filling_array(int id)
 {
-	waiting_array1[id].parent_thr = thread_current();
-	sema_init(&waiting_array1[id].sem, 0);
-	sema_down(&waiting_array1[id].sem);
-	waiting_array1[id].parent_thr = NULL;
+	waiting_array[id].parent_thr = thread_current();
+	sema_init(&waiting_array[id].sem, 0);
+	sema_down(&waiting_array[id].sem);
+	waiting_array[id].parent_thr = NULL;
 }
 
 void upping_s(struct thread *parent)
@@ -70,12 +70,12 @@ void upping_s(struct thread *parent)
 	}
 
 	int i = 0;
-	while (waiting_array1[i].parent_thr != parent)
+	while (waiting_array[i].parent_thr != parent)
 	{
 		i++;
 	}
 
-	sema_up(&waiting_array1[i].sem);
+	sema_up(&waiting_array[i].sem);
 	return;
 }
 
