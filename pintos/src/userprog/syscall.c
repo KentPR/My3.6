@@ -14,9 +14,7 @@
 
 static void syscall_handler(struct intr_frame *);
 
-struct storage store[20];
-
-int count = 0;
+struct p_arr store[CNT];
 
 void filling_eax(struct intr_frame *f, int value)
 {
@@ -34,21 +32,34 @@ void exit(int err_type)
 	thread_exit(); //завершение программы
 }
 
-void filling_last(int p_id)
+int search_for_free_place(void)
 {
-	store[count].pid = p_id;
-	store[count].proc = thread_current();
-	count++;
+	for (int i = 0; i < CNT; i++)
+	{
+		if (store[i].is_used != true)
+		{
+			store[i].is_used = true;
+			return i;
+		}
+	}
+}
+
+void filling_array_t(int p_id, int index)
+{
+	store[index].thr = thread_current();
+	store[index].tid = p_id;
 }
 
 int wait(int p_id)
 {
-	for (int i = 0; i < count; i++)
+	int i = 0;
+	while (store[i].is_used == true)
 	{
-		if (compare(store[i].proc, thread_current()) && compare(store[i].pid, p_id))
+		if (compare(store[i].thr, thread_current()) && compare(store[i].tid, p_id))
 			return ERROR_1;
+		i++;
 	}
-	filling_last(p_id);
+	filling_array_t(p_id, search_for_free_place());
 	return process_wait(p_id);
 }
 
@@ -88,6 +99,7 @@ void file_size(int *ptr, int thid, struct intr_frame *f)
 	thid = file_length(thread_current()->Fbox[*ptr]);
 	f->eax = file_length(thread_current()->Fbox[*ptr]);
 }
+
 void close(int *ptr)
 {
 	int fd = *ptr;
